@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 import torchvision
@@ -8,6 +9,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 
 from models.fcn_mnist import MNISTModelFCN
+from models.cnn_synthetic import CNNSynthetic
+from models.fcn_synthetic import FCNSynthetic
 
 
 # Workaround for MNIST download issues
@@ -182,7 +185,7 @@ def get_transformations(args):
 
 def get_dataset(dataset_name, dataset_path, transforms,):
     """
-    Function used to load the train and test datasets. 
+    Function used to load the train and test artificial_datasets.
 
     If dataset_name represents a torchvision dataset, save it to dataset_path. 
     Otherwise, read the dataset from dataset_path. 
@@ -191,6 +194,14 @@ def get_dataset(dataset_name, dataset_path, transforms,):
     if dataset_name == 'mnist':
         train_set = torchvision.datasets.MNIST(root=dataset_path, train=True, download=True, transform=transforms)
         test_set = torchvision.datasets.MNIST(root=dataset_path, train=False, download=True, transform=transforms)
+    elif dataset_name == 'circles':
+        circles_dataset = pd.read_pickle(dataset_path)
+        train_set = list(zip(circles_dataset[0][0][0], circles_dataset[0][0][1]))
+        test_set = list(zip(circles_dataset[0][1][0], circles_dataset[0][1][1]))
+    elif dataset_name == 'moons':
+        moons_dataset = pd.read_pickle(dataset_path)
+        train_set = list(zip(moons_dataset[0][0][0], moons_dataset[0][0][1]))
+        test_set = list(zip(moons_dataset[0][1][0], moons_dataset[0][1][1]))
     else:
         return None, None
 
@@ -211,6 +222,14 @@ def get_model(model_name):
 
     if model_name == 'mnist_fcn':
         return MNISTModelFCN()
+    elif model_name == 'synthetic_fcn':
+        fcn_network = FCNSynthetic()
+        fcn_network.double()
+        return fcn_network
+    elif model_name == 'synthetic_cnn':
+        cnn_network = CNNSynthetic()
+        cnn_network.double()
+        return cnn_network
     else:
         return None
 

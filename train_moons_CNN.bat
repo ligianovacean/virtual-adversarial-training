@@ -1,0 +1,1 @@
+python train.py --dataset moons --dataset_path artificial_datasets/syndata_2.pkl --model synthetic_cnn --num_classes 2 --batch_size 4
