@@ -16,7 +16,7 @@ class FCNSynthetic(torch.nn.Module):
         X = self.layer2(X)
         X = torch.relu(X)
         X = self.output_layer(X)
-        X = F.log_softmax(X)
+        #X = F.softmax(X)
 
         return X
 
