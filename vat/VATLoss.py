@@ -20,6 +20,7 @@ class VATLoss(nn.Module):
         d = torch.rand(X.shape).sub(0.5)
         d = self._l2_normalize(d)
 
+        # d <- unitvector(H*d)
         for _ in range(self.iterations):
             r = d * self.xi
             r = r.to(device)
