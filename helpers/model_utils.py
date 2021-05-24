@@ -2,6 +2,7 @@
 from models.fcn_mnist import MNISTModelFCN
 from models.cnn_synthetic import CNNSynthetic
 from models.fcn_synthetic import FCNSynthetic
+from models.cnn_mnist import LeNet5
 
 import torch
 import torch.optim as optim
@@ -10,8 +11,10 @@ import torch.optim as optim
 def get_model(model_name):
     """Function that, based on the model name, instantiates a model object"""
 
-    if model_name == 'mnist_fcn':
+    if model_name == 'mnist_fnn':
         return MNISTModelFCN()
+    elif model_name == 'mnist_cnn':
+        return LeNet5()
     elif model_name == 'synthetic_fcn':
         fcn_network = FCNSynthetic()
         fcn_network.double()

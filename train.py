@@ -10,8 +10,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from helpers.dataset_utils import VectorizeTransform
 from helpers.dataset_utils import repeater, get_dataset, get_dataset_loaders
-from helpers.plot_utils import plot_losses, plot_confusion_matrix
+from helpers.plot_utils import plot_losses, plot_confusion_matrix, print_progress_bar
 from helpers.model_utils import get_model, get_optimizer, get_lr_scheduler, save_model
+from helpers.log_utils import store_metrics
 
 from vat.VATLoss import VATLoss
 
@@ -66,6 +67,12 @@ def parse_args():
                         help='VAT xi - perturbation scale (default: 10.0)')
 
     # Data transformation related parameters
+    parser.add_argument('--padding_size', type=int, default=-1, 
+                        help='Pad image with specified padding if non-negative (default = -1)')
+    parser.add_argument('--normalize_mean', type=float, default=0.1307, \
+                        help='Normalization mean (default: 0.1307)')
+    parser.add_argument('--normalize_std', type=float, default=0.3081, \
+                        help='Normalization std (default: 0.3081)')
 
     # Model optim parameters
     parser.add_argument('--iterations', type=int, default=10000, \
@@ -90,6 +97,8 @@ def parse_args():
                         help='How many batches to wait before logging training status (default: 0)')
     parser.add_argument('--experiment_name', default='experiment', 
                         help='Experiment name (default: experiment)')
+    parser.add_argument('--repetitions', type=int, default=1,\
+                        help='How many times to run the experiment (default: 1)')
 
     return parser.parse_args()
 
@@ -104,10 +113,10 @@ def print_results(iteration, total_train_loss, total_lds_loss, train_ce_loss, te
     print(f"\tValidation Acc: {np.around(accuracy, 2)}")
 
 
-def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, valid_loader, device, writer, args):
+def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, valid_loader, device, writer, experiments_folder, args):
     log_interval = args.log_interval
     iterations = args.iterations
-    best_model_path = str(Path.cwd() / "output" / args.experiment_name / "best_model")
+    best_model_path = experiments_folder / "best_model"
     cpu = torch.device("cpu")
 
     model.train()
@@ -121,6 +130,7 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
     total_train_loss = 0.0
     total_lds_loss = 0.0
     best_test_loss = float("inf")
+    best_model = None
 
     for iteration in range(iterations):
         labeled_batch = next(labeled_loader)
@@ -137,9 +147,9 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
         if args.is_vat:
             vat = VATLoss(args.epsilon, args.ip, args.xi)
             if unlabeled_loader is None:
-                lds_loss = vat(labeled_data, model, device)
+                lds_loss = vat(labeled_data, model, device, writer)
             else:
-                lds_loss = vat(unlabeled_data, model, device)
+                lds_loss = vat(unlabeled_data, model, device, writer)
             output = model(labeled_data)
             ce_loss = F.cross_entropy(output, target)
             loss = ce_loss + args.reg_lambda * lds_loss
@@ -150,9 +160,9 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
         loss.backward()  # Backward step
         optimizer.step()  # Update step
 
-        # Validation
+        # Validation and logging 
         total_train_loss += loss.item()
-        total_lds_loss += lds_loss.item()
+        total_lds_loss += lds_loss
         if (iteration +1 ) % log_interval == 0:
             # Run inference
             test_loss, test_accuracy = inference(model, valid_loader, device)
@@ -162,22 +172,24 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
             lds_loss = total_lds_loss/log_interval
             ce_loss = train_loss - args.reg_lambda * lds_loss
             idx = (iteration + 1) // log_interval - 1
-            writer.add_scalar('Loss/total_train_loss', train_loss, idx)
-            writer.add_scalar('Loss/lds_train_loss', lds_loss, idx)
-            writer.add_scalar('Loss/ce_train_loss', ce_loss, idx)
-            writer.add_scalar('Loss/ce_test_loss',test_loss, idx)
-            writer.add_scalar('Accuracy/test_accuracy', test_accuracy, idx)
+            store_metrics(writer, train_loss, lds_loss, ce_loss, test_loss, test_accuracy, iteration)
             
             # Save model if it outperforms previous best model
             if test_loss < best_test_loss:
                 best_test_loss = test_loss
+                best_model = model
                 save_model(best_model_path, model, iteration, optimizer, lr_scheduler)
+
+            # Update progress bar
+            print_progress_bar(iteration+1, iterations)
 
             total_train_loss = 0.0
             total_lds_loss = 0.0
 
         # Learning rate update step
         lr_scheduler.step()
+
+    return best_model
 
 
 def inference(model, data_loader, device):
@@ -203,14 +215,15 @@ def inference(model, data_loader, device):
     return loss / count, 100. * correct / len(data_loader.dataset)
 
 
-def main(args):
+def main(args, experiments_folder):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Logging via TensorBoard
-    writer = SummaryWriter(str(Path.cwd() / "output" / args.experiment_name / "runs"))
+    writer = SummaryWriter(experiments_folder / "runs")
 
-    labeled_dataset, unlabeled_dataset, valid_set, test_set = get_dataset(args.dataset, args.dataset_path, args.unlabeled_items, args.valid_split_items)
+    labeled_dataset, unlabeled_dataset, valid_set, test_set = get_dataset(args)
     labeled_loader, unlabeled_loader, valid_loader, test_loader = get_dataset_loaders(labeled_dataset, unlabeled_dataset, valid_set, test_set, args)
+    assert labeled_loader is not None and test_loader is not None, "Labeled train dataset and test dataset cannot be empty."
 
     model = get_model(args.model)
     assert model is not None, "Specified network name not supported."
@@ -222,17 +235,46 @@ def main(args):
     lr_scheduler = get_lr_scheduler(optimizer, args.lr_scheduler, [args.lr_decay, args.lr_step_size])
     assert lr_scheduler is not None, "Specified LR Scheduler not supported."
 
-    train(model, optimizer, lr_scheduler,
-          labeled_loader, unlabeled_loader, valid_loader, 
-          device, writer,
-          args)
+    if valid_loader is not None:
+        best_model = train(model, optimizer, lr_scheduler,
+            labeled_loader, unlabeled_loader, valid_loader, 
+            device, writer, experiments_folder,
+            args)
+    else:
+        best_model = train(model, optimizer, lr_scheduler,
+            labeled_loader, unlabeled_loader, test_loader, 
+            device, writer, experiments_folder,
+            args)
 
-    _, test_accuracy = inference(model, test_loader, device)
-    print(f"\n\nTest accuracy: {test_accuracy}")
+    _, test_accuracy = inference(best_model, test_loader, device)
+
+    return test_accuracy
 
 
 if __name__ == "__main__":
     args = parse_args()
     print(f"\nRunning with arguments: \n\t{args}\n")
 
-    main(args)
+    acc_arr = np.zeros(args.repetitions)
+    for id_x in range(args.repetitions):
+        print(f"\nExperiment repetition {id_x}")
+        experiments_folder = Path.cwd() / "output" / args.experiment_name / f"iter_{id_x}"
+
+        test_accuracy = main(args, experiments_folder)
+        acc_arr[id_x] = test_accuracy
+
+    # Save parameters
+    with open(Path.cwd() / "output" / args.experiment_name / "parameters.txt", "w") as f:
+        f.write(str(args))
+
+    # Log summary metrics
+    summary_writer = SummaryWriter(Path.cwd() / "output" / args.experiment_name / "summary")
+    for id_x, acc in enumerate(acc_arr):
+        summary_writer.add_scalar('Test accuracy', acc, id_x)
+    summary_writer.add_scalar('Average accuracy', np.mean(acc_arr) - 1.96 * np.std(acc_arr) / np.sqrt(args.repetitions), 0)
+    summary_writer.add_scalar('Average accuracy', np.mean(acc_arr), 1)
+    summary_writer.add_scalar('Average accuracy', np.mean(acc_arr) + 1.96 * np.std(acc_arr) / np.sqrt(args.repetitions), 2)
+
+    
+
+    
