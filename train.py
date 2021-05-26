@@ -152,9 +152,13 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
                 lds_loss = vat(labeled_data, model, device, writer)
             else:
                 lds_loss = vat(unlabeled_data, model, device, writer)
-            output = model(labeled_data)
-            ce_loss = F.cross_entropy(output, target)
-            loss = ce_loss + args.reg_lambda * lds_loss
+            
+            if labeled_data is not None:
+                output = model(labeled_data)
+                ce_loss = F.cross_entropy(output, target)
+                loss = ce_loss + args.reg_lambda * lds_loss
+            else:
+                loss = args.reg_lambda * lds_loss
         else:
             output = model(labeled_data)
             loss = F.cross_entropy(output, target)

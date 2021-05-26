@@ -1,6 +1,6 @@
 
-from models.fcn_fnn_mnist_supervised import MNISTSupervisedFNN
-from models.fcn_fnn_mnist_semisupervised import MNISTSemiSupervisedFNN
+from models.fnn_mnist_supervised import MNISTSupervisedFNN
+from models.fnn_mnist_semisupervised import MNISTSemiSupervisedFNN
 from models.cnn_synthetic import CNNSynthetic
 from models.fcn_synthetic import FCNSynthetic
 from models.cnn_mnist import LeNet5
