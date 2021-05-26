@@ -162,6 +162,7 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
         loss.backward()  # Backward step
         optimizer.step()  # Update step
         lr_scheduler.step() # Learning rate update step
+        writer.add_scalar('LR', optimizer.param_groups[0]['lr'], iteration)
 
         # Validation and logging 
         total_train_loss += loss.item()

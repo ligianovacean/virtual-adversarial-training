@@ -1,5 +1,6 @@
 
-from models.fcn_mnist import MNISTModelFCN
+from models.fcn_fnn_mnist_supervised import MNISTSupervisedFNN
+from models.fcn_fnn_mnist_semisupervised import MNISTSemiSupervisedFNN
 from models.cnn_synthetic import CNNSynthetic
 from models.fcn_synthetic import FCNSynthetic
 from models.cnn_mnist import LeNet5
@@ -11,8 +12,10 @@ import torch.optim as optim
 def get_model(model_name):
     """Function that, based on the model name, instantiates a model object"""
 
-    if model_name == 'mnist_fnn':
-        return MNISTModelFCN()
+    if model_name == 'mnist_supervised_fnn':
+        return MNISTSupervisedFNN()
+    elif model_name == 'mnist_semisupervised_fnn':
+        return MNISTSemiSupervisedFNN()
     elif model_name == 'mnist_cnn':
         return LeNet5()
     elif model_name == 'synthetic_fcn':
