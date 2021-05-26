@@ -35,8 +35,8 @@ def parse_args():
                         help='Path to dataset')
     parser.add_argument('--valid_split_items', type=float, default=0.0, \
                         help='Number of validation instances (default: 0)')
-    parser.add_argument('--unlabeled_items', type=float, default=0.0, \
-                        help='Percentage of labels to remove (default: 0.0)')
+    parser.add_argument('--labeled_items', type=float, default=0.0, \
+                        help='Percentage of labels to keep (default: 0.0)')
 
     # Model related parameters
     parser.add_argument('--model', default='lenet-5', \
@@ -63,8 +63,8 @@ def parse_args():
                         help='VAT epsilon (default: 1.0)')
     parser.add_argument('--ip', type=int, default=1, \
                         help='Number of iterations in VAT\'s power iteration method (default: 1)')
-    parser.add_argument('--xi', type=float, default=10.0, \
-                        help='VAT xi - perturbation scale (default: 10.0)')
+    parser.add_argument('--xi', type=float, default=1e-6, \
+                        help='VAT xi - perturbation scale (default: 1e-6)')
 
     # Data transformation related parameters
     parser.add_argument('--padding_size', type=int, default=-1, 
@@ -81,6 +81,8 @@ def parse_args():
                         help='Optimizer (default: adam)')
     parser.add_argument('--lr', type=float, default=1e-2, \
                         help='Learning rate (default: 1e-2')
+    parser.add_argument('--momentum', type=float, default=0.9, 
+                        help='Optimizer momentum (default: 0.9)')
     parser.add_argument('--lr_scheduler', default='step', \
                         help='Learning rate scheduler (default: step)')
     parser.add_argument('--lr_decay', type=float, default=0.9, \
@@ -93,8 +95,8 @@ def parse_args():
     # Utility arguments
     parser.add_argument('--debug_mode', action='store_true', default=False, \
                         help='Whether to execute in debug mode (default: False)')
-    parser.add_argument('--log_interval', type=int, default=0, \
-                        help='How many batches to wait before logging training status (default: 0)')
+    parser.add_argument('--log_interval', type=int, default=500, \
+                        help='How many batches to wait before logging training status (default: 500)')
     parser.add_argument('--experiment_name', default='experiment', 
                         help='Experiment name (default: experiment)')
     parser.add_argument('--repetitions', type=int, default=1,\
@@ -159,6 +161,7 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
 
         loss.backward()  # Backward step
         optimizer.step()  # Update step
+        lr_scheduler.step() # Learning rate update step
 
         # Validation and logging 
         total_train_loss += loss.item()
@@ -184,10 +187,7 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
             print_progress_bar(iteration+1, iterations)
 
             total_train_loss = 0.0
-            total_lds_loss = 0.0
-
-        # Learning rate update step
-        lr_scheduler.step()
+            total_lds_loss = 0.0        
 
     return best_model
 
@@ -229,7 +229,7 @@ def main(args, experiments_folder):
     assert model is not None, "Specified network name not supported."
     model.to(device)
 
-    optimizer = get_optimizer(model, args.optimizer, args.lr)
+    optimizer = get_optimizer(model, args.optimizer, args.lr, args.momentum)
     assert optimizer is not None, "Specified optimizer not supported."
 
     lr_scheduler = get_lr_scheduler(optimizer, args.lr_scheduler, [args.lr_decay, args.lr_step_size])
@@ -274,7 +274,3 @@ if __name__ == "__main__":
     summary_writer.add_scalar('Average accuracy', np.mean(acc_arr) - 1.96 * np.std(acc_arr) / np.sqrt(args.repetitions), 0)
     summary_writer.add_scalar('Average accuracy', np.mean(acc_arr), 1)
     summary_writer.add_scalar('Average accuracy', np.mean(acc_arr) + 1.96 * np.std(acc_arr) / np.sqrt(args.repetitions), 2)
-
-    
-
-    

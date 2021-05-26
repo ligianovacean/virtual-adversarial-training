@@ -27,9 +27,11 @@ def get_model(model_name):
         return None
 
 
-def get_optimizer(model, optimizer_name, lr):
+def get_optimizer(model, optimizer_name, lr, momentum):
     if optimizer_name == 'adam':
         return optim.Adam(model.parameters(), lr)
+    if optimizer_name == 'sgd':
+        return optim.SGD(model.parameters(), lr, momentum=momentum)
     else:
         return None
 
