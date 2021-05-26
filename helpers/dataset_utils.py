@@ -71,19 +71,18 @@ def get_dataset(args):
     else:
         valid_dataset_size = int(args.valid_split_items)
     assert valid_dataset_size > 0 and valid_dataset_size < len(train_set), "Number of items in the validation set must be in range [0-train_set_size]."
-    
-    # Compute the size of the labeled and unlabeled sets - percentage vs. absolut value specification
-    if args.unlabeled_items <= 1.0:
-        unlabeled_dataset_size = int((len(train_set) - valid_dataset_size) * args.unlabeled_items)
+
+    if args.labeled_items <= 1.0:
+        labeled_dataset_size = int((len(train_set) - valid_dataset_size) * args.labeled_items)
     else:
-        unlabeled_dataset_size = int(args.unlabeled_items)
-    labeled_dataset_size = len(train_set) - valid_dataset_size - unlabeled_dataset_size
+        labeled_dataset_size = int(args.labeled_items)
+    unlabeled_dataset_size = len(train_set) - valid_dataset_size
 
-    assert unlabeled_dataset_size >= -1 and unlabeled_dataset_size < len(train_set), "Number of unlabeled samples not in range [0-train_set_size]."
-
-    labeled_dataset, unlabeled_dataset, valid_dataset = torch.utils.data.random_split(train_set, \
-        [labeled_dataset_size, unlabeled_dataset_size, valid_dataset_size])
-
+    unlabeled_dataset, valid_dataset = torch.utils.data.random_split(train_set, \
+        [unlabeled_dataset_size, valid_dataset_size])
+    labeled_dataset, _ = torch.utils.data.random_split(unlabeled_dataset, 
+        [labeled_dataset_size, unlabeled_dataset_size - labeled_dataset_size])
+    
     return labeled_dataset, unlabeled_dataset, valid_dataset, test_set
 
 

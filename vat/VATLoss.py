@@ -20,7 +20,7 @@ class VATLoss(nn.Module):
         self.iterations = iterations
         self.xi = xi
 
-    def get_unit_vector(self, d):
+    def get_unit_vector(self, d): 
         # d_reshaped = d.view(d.shape[0], -1, *(1 for _ in range(d.dim() - 2)))
         norm = torch.norm(d, dim=1, keepdim=True)
         d /= norm + 1e-8
