@@ -135,9 +135,10 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
     best_model = None
 
     for iteration in range(iterations):
-        labeled_batch = next(labeled_loader)
-        labeled_data = labeled_batch[0].to(device)
-        target = labeled_batch[1].to(device)
+        if labeled_loader is not None:
+            labeled_batch = next(labeled_loader)
+            labeled_data = labeled_batch[0].to(device)
+            target = labeled_batch[1].to(device)
 
         if unlabeled_loader is not None:
             unlabeled_data = next(unlabeled_loader)
