@@ -82,6 +82,9 @@ def get_dataset(args):
         [unlabeled_dataset_size, valid_dataset_size])
     labeled_dataset, _ = torch.utils.data.random_split(unlabeled_dataset, 
         [labeled_dataset_size, unlabeled_dataset_size - labeled_dataset_size])
+
+    if not args.is_vat:
+        unlabeled_dataset = None
     
     return labeled_dataset, unlabeled_dataset, valid_dataset, test_set
 

@@ -1,6 +1,7 @@
 
-from models.fcn_fnn_mnist_supervised import MNISTSupervisedFNN
-from models.fcn_fnn_mnist_semisupervised import MNISTSemiSupervisedFNN
+from models.fnn_mnist_supervised import MNISTSupervisedFNN
+from models.fnn_mnist_semisupervised import MNISTSemiSupervisedFNN
+from models.baseline_mnist import MNISTBaselineFNN
 from models.cnn_synthetic import CNNSynthetic
 from models.fcn_synthetic import FCNSynthetic
 from models.cnn_mnist import LeNet5
@@ -16,6 +17,8 @@ def get_model(model_name):
         return MNISTSupervisedFNN()
     elif model_name == 'mnist_semisupervised_fnn':
         return MNISTSemiSupervisedFNN()
+    elif model_name == 'mnist_baseline_fnn':
+        return MNISTBaselineFNN()
     elif model_name == 'mnist_cnn':
         return LeNet5()
     elif model_name == 'synthetic_fcn':

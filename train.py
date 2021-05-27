@@ -121,7 +121,7 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
     best_model_path = experiments_folder / "best_model"
     cpu = torch.device("cpu")
 
-    model.train()
+    # model.train()
 
     # Get infinite data loader
     labeled_loader = repeater(labeled_loader)
@@ -135,9 +135,12 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
     best_model = None
 
     for iteration in range(iterations):
-        labeled_batch = next(labeled_loader)
-        labeled_data = labeled_batch[0].to(device)
-        target = labeled_batch[1].to(device)
+        model.train()
+        
+        if labeled_loader is not None:
+            labeled_batch = next(labeled_loader)
+            labeled_data = labeled_batch[0].to(device)
+            target = labeled_batch[1].to(device)
 
         if unlabeled_loader is not None:
             unlabeled_data = next(unlabeled_loader)
@@ -152,9 +155,13 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
                 lds_loss = vat(labeled_data, model, device, writer)
             else:
                 lds_loss = vat(unlabeled_data, model, device, writer)
-            output = model(labeled_data)
-            ce_loss = F.cross_entropy(output, target)
-            loss = ce_loss + args.reg_lambda * lds_loss
+            
+            if labeled_data is not None:
+                output = model(labeled_data)
+                ce_loss = F.cross_entropy(output, target)
+                loss = ce_loss + args.reg_lambda * lds_loss
+            else:
+                loss = args.reg_lambda * lds_loss
         else:
             output = model(labeled_data)
             loss = F.cross_entropy(output, target)
@@ -200,18 +207,19 @@ def inference(model, data_loader, device):
     count = 0
     correct = 0
 
-    for batch_idx, (data, target) in enumerate(data_loader):
-        data = data.to(device)
-        target = target.to(device)
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(data_loader):
+            data = data.to(device)
+            target = target.to(device)
 
-        output = model(data)
-        loss += F.cross_entropy(output, target).item()
-        pred = output.max(1, keepdim=True)[1]
-        correct += pred.eq(target.view_as(pred)).sum().item()
+            output = model(data)
+            loss += F.cross_entropy(output, target).item()
+            pred = output.max(1, keepdim=True)[1]
+            correct += pred.eq(target.view_as(pred)).sum().item()
 
-        count += 1
+            count += 1
 
-    loss /= count
+        loss /= count
 
     return loss / count, 100. * correct / len(data_loader.dataset)
 
@@ -248,6 +256,8 @@ def main(args, experiments_folder):
             args)
 
     _, test_accuracy = inference(best_model, test_loader, device)
+
+    writer.close()
 
     return test_accuracy
 
