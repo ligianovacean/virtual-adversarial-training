@@ -56,7 +56,7 @@ class VATLoss(nn.Module):
         if random.random() < PROBABILITY:
             write_images(X, r_vadv, writer)
 
-        prediction_rvadv = network(X + r_vadv)
+        prediction_rvadv = network(X + r_vadv.detach())
         prediction_rvadv = F.log_softmax(prediction_rvadv, dim=1)
         lds = F.kl_div(prediction_rvadv, prediction, reduction='batchmean')
 
