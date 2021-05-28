@@ -7,6 +7,7 @@ import torchvision
 import torch
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
+from torch_lr_finder import LRFinder
 
 from helpers.dataset_utils import VectorizeTransform
 from helpers.dataset_utils import repeater, get_dataset, get_dataset_loaders
@@ -197,7 +198,8 @@ def train(model, optimizer, lr_scheduler, labeled_loader, unlabeled_loader, vali
             total_train_loss = 0.0
             total_lds_loss = 0.0        
 
-    return best_model
+    # return best_model
+    return model
 
 
 def inference(model, data_loader, device):
@@ -221,7 +223,7 @@ def inference(model, data_loader, device):
 
         loss /= count
 
-    return loss / count, 100. * correct / len(data_loader.dataset)
+    return loss, 100. * correct / len(data_loader.dataset)
 
 
 def main(args, experiments_folder):
@@ -240,6 +242,13 @@ def main(args, experiments_folder):
 
     optimizer = get_optimizer(model, args.optimizer, args.lr, args.momentum)
     assert optimizer is not None, "Specified optimizer not supported."
+
+    # LR Finder
+    # criterion = torch.nn.CrossEntropyLoss()
+    # lr_finder = LRFinder(model, optimizer, criterion, device="cuda")
+    # lr_finder.range_test(labeled_loader, start_lr=0.0001, end_lr=1, num_iter=200)
+    # lr_finder.plot() # to inspect the loss-learning rate graph
+    # lr_finder.reset() # to reset the model and optimizer to their initial state
 
     lr_scheduler = get_lr_scheduler(optimizer, args.lr_scheduler, [args.lr_decay, args.lr_step_size])
     assert lr_scheduler is not None, "Specified LR Scheduler not supported."
